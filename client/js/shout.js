@@ -257,7 +257,7 @@ $(function() {
 
 	var input = $("#input")
 		.history()
-		.tab(complete, {hint: false});
+		.tab(complete, {hint: false, afterFirst: ': '});
 	
 	var form = $("#form").on("submit", function(e) {
 		e.preventDefault();

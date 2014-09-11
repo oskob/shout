@@ -14,6 +14,7 @@
 	$.tabcomplete = {};
 	$.tabcomplete.defaultOptions = {
 		after: "",
+		afterFirst: "",
 		arrowKeys: false,
 		caseSensitive: false,
 		hint: "placeholder",
@@ -147,8 +148,8 @@
 				}
 				
 				// Update element with the completed text.
-				var text = value.substr(0, self[0].selectionStart - last.length - (value.slice(-2) == ': ' ? 2 : 0)) + word;
-				self.val(text + (self.val().lastIndexOf(last) == '0' ? ': ' : ''));
+				var text = value.substr(0, self[0].selectionStart - last.length - (options.afterFirst !== "" && value.slice(-options.afterFirst.length) === options.afterFirst ? options.afterFirst.length : 0)) + word;
+				self.val(text + (self.val().lastIndexOf(last) == '0' ? options.afterFirst : ''));
 				
 				// Put the cursor at the end after completion.
 				// This isn't strictly necessary, but solves an issue with
