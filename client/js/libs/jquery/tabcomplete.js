@@ -35,11 +35,6 @@
 			return;
 		}
 		
-		// Set default options.
-		options = $.extend(
-			$.tabcomplete.defaultOptions,
-			options
-		);
 		
 		// Remove any leftovers.
 		// This allows us to override the plugin if necessary.
@@ -54,6 +49,14 @@
 		
 		var hint = $.noop;
 		
+		// Set default options.
+		self.options = $.extend(
+			$.tabcomplete.defaultOptions,
+			options
+		);
+
+		options = self.options;
+
 		// Determine what type of hinting to use.
 		switch (options.hint) {
 		case "placeholder":

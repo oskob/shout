@@ -226,17 +226,35 @@ $(function() {
 	$.cookie.json = true;
 
 	var settings = $("#settings");
-	var options = $.extend({notification: true}, $.cookie("settings"));
+	var options = $.extend({notification: true, autocompleteSuffix: ": "}, $.cookie("settings"));
 
 	for (var i in options) {
 		if (options[i]) {
-			settings.find("input[name=" + i + "]").prop("checked", true);
+			var setting = settings.find("input[name=" + i + "]");
+			if(setting.attr("type") === "checkbox")
+			{
+				setting.prop("checked", options[i]);
+			}
+			else if(setting.attr("type") === "text")
+			{
+				setting.val(options[i]);
+			}
 		}
 	}
 
+	var input = $("#input")
+		.history();
+	var tabcomplete = input.tab(complete, {hint: false, afterFirst: options.autocompleteSuffix});
+
 	settings.on("change", "input", function() {
 		var self = $(this);
-		options[self.attr("name")] = self.prop("checked");
+		options[self.attr("name")] =
+			(self.attr("type") === "checkbox") ? self.prop("checked") :
+			(self.attr("type") === "text") ? self.val() :
+			null;
+
+		tabcomplete.options.afterFirst = options.autocompleteSuffix;
+
 		$.cookie("settings", options);
 	}).find("input")
 		.eq(0)
@@ -255,9 +273,6 @@ $(function() {
 		}
 	});
 
-	var input = $("#input")
-		.history()
-		.tab(complete, {hint: false, afterFirst: ': '});
 	
 	var form = $("#form").on("submit", function(e) {
 		e.preventDefault();
