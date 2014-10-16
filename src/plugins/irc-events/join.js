@@ -12,6 +12,7 @@ module.exports = function(irc, network) {
 				name: data.channel
 			});
 			network.channels.push(chan);
+			client.save();
 			client.emit("join", {
 				network: network.id,
 				chan: chan
@@ -24,9 +25,14 @@ module.exports = function(irc, network) {
 			chan: chan.id,
 			users: users
 		});
+		var self = false;
+		if (data.nick.toLowerCase() == irc.me.toLowerCase()) {
+			self = true;
+		}
 		var msg = new Msg({
 			from: data.nick,
-			type: Msg.Type.JOIN
+			type: Msg.Type.JOIN,
+			self: self
 		});
 		chan.messages.push(msg);
 		client.emit("msg", {

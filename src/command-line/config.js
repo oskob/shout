@@ -1,15 +1,17 @@
+var fs = require("fs");
+var path = require("path");
 var program = require("commander");
+var mkdirp = require("mkdirp");
 var child = require("child_process");
-
-var CONFIG_PATH = process.cwd() + "/config.json";
+var Helper = require("../helper");
 
 program
 	.command("config")
-	.description("Edit config: '" + CONFIG_PATH + "'")
+	.description("Edit config: '" + Helper.HOME + "/config.js'")
 	.action(function() {
 		child.spawn(
-			"sudo",
-			["vi", CONFIG_PATH],
+			process.env.EDITOR || "vi",
+			[Helper.HOME + "/config.js"],
 			{stdio: "inherit"}
 		);
 	});

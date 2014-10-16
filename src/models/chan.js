@@ -15,7 +15,9 @@ function Chan(attr) {
 		id: id++,
 		messages: [],
 		name: "",
+		topic: "",
 		type: Chan.Type.CHANNEL,
+		unread: 0,
 		users: []
 	}, attr));
 }
@@ -27,8 +29,9 @@ Chan.prototype.sortUsers = function() {
 	);
 	var modes = [
 		"~",
-		"%",
+		"&",
 		"@",
+		"%",
 		"+",
 	].reverse();
 	modes.forEach(function(mode) {
@@ -37,6 +40,15 @@ Chan.prototype.sortUsers = function() {
 			function(u) { return u.mode == mode; }
 		).concat(this.users);
 	}, this);
+};
+
+Chan.prototype.getMode = function(name) {
+	var user = _.find(this.users, {name: name});
+	if (user) {
+		return user.mode;
+	} else {
+		return "";
+	}
 };
 
 Chan.prototype.toJSON = function() {

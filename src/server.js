@@ -1,26 +1,48 @@
 var _ = require("lodash");
+var bcrypt = require("bcrypt-nodejs");
 var Client = require("./client");
 var ClientManager = require("./clientManager");
-var config = require("../config.json");
+var express = require("express");
 var fs = require("fs");
-var http = require("connect");
 var io = require("socket.io");
+var Helper = require("./helper");
+var config = {};
 
 var sockets = null;
 var manager = new ClientManager();
 
-module.exports = function(port, host, isPublic) {
-	config.port = port;
-	config.host = host;
-	config.public = isPublic;
+module.exports = function(options) {
+	config = Helper.getConfig();
+	config = _.extend(config, options);
 
-	var app = http()
+	var app = express()
 		.use(index)
-		.use(http.static("client"))
-		.use(http.static(process.env.HOME + "/.shout/cache"))
-		.listen(config.port, config.host);
+		.use(express.static("client"));
+	
+	app.enable("trust proxy");
 
-	sockets = io(app);
+	var server = null;
+	var https = config.https || {};
+	var protocol = https.enable ? "https" : "http";
+	var port = config.port;
+	var host = config.host;
+
+	if (!https.enable){
+		server = require("http");
+		server = server.createServer(app).listen(port, host);
+	} else {
+		server = require("https");
+		server = server.createServer({
+			key: fs.readFileSync(https.key),
+			cert: fs.readFileSync(https.certificate)
+		}, app).listen(port, host)
+	}
+
+	if ((config.identd || {}).enable) {
+		require("./identd").start(config.identd.port);
+	}
+
+	sockets = io(server);
 	sockets.on("connect", function(socket) {
 		if (config.public) {
 			auth.call(socket);
@@ -29,13 +51,18 @@ module.exports = function(port, host, isPublic) {
 		}
 	});
 
+	manager.sockets = sockets;
+
 	console.log("");
-	console.log("Shout is now running on http://" + config.host + ":" + config.port + "/");
+	console.log("Shout is now running on " + protocol + "://" + config.host + ":" + config.port + "/");
 	console.log("Press ctrl-c to stop");
 	console.log("");
 
 	if (!config.public) {
-		manager.loadUsers(sockets);
+		manager.loadUsers();
+		if (config.autoload) {
+			manager.autoload();
+		}
 	}
 };
 
@@ -46,6 +73,8 @@ function index(req, res, next) {
 			require("../package.json"),
 			config
 		);
+		res.setHeader("Content-Type", "text/html");
+		res.writeHead(200);
 		res.end(_.template(
 			file,
 			data
@@ -53,7 +82,7 @@ function index(req, res, next) {
 	});
 }
 
-function init(socket, client) {
+function init(socket, client, token) {
 	if (!client) {
 		socket.emit("auth");
 		socket.on("auth", auth);
@@ -65,9 +94,9 @@ function init(socket, client) {
 			}
 		);
 		socket.on(
-			"showMore",
+			"more",
 			function(data) {
-				showMore(client, data);
+				client.more(data);
 			}
 		);
 		socket.on(
@@ -76,9 +105,23 @@ function init(socket, client) {
 				client.connect(data);
 			}
 		);
+		socket.on(
+			"open",
+			function(data) {
+				client.open(data);
+			}
+		);
+		socket.on(
+			"sort",
+			function(data) {
+				client.sort(data);
+			}
+		);
 		socket.join(client.id);
 		socket.emit("init", {
-			networks: client.networks
+			active: client.activeChannel,
+			networks: client.networks,
+			token: token || ""
 		});
 	}
 }
@@ -94,28 +137,28 @@ function auth(data) {
 		});
 		init(socket, client);
 	} else {
-		var success = 0;
+		var success = false;
 		_.each(manager.clients, function(client) {
-			if (client.config.user == data.user && client.config.password == data.password) {
-				init(socket, client);
-				success++;
+			if (data.token) {
+				if (data.token == client.token) {
+					success = true;
+				}
+			} else if (client.config.user == data.user) {
+				if (bcrypt.compareSync(data.password || "", client.config.password)) {
+					success = true;
+				}
+			}
+			if (success) {
+				var token;
+				if (data.remember || data.token) {
+					token = client.token;
+				}
+				init(socket, client, token);
+				return false;
 			}
 		});
 		if (!success) {
 			socket.emit("auth");
 		}
 	}
-}
-
-function showMore(client, data) {
-	var target = client.find(data.target);
-	if (!target) {
-		return;
-	}
-	var chan = target.chan;
-	var messages = chan.messages.slice(0, chan.messages.length - (data.count || 0));
-	client.emit("showMore", {
-		chan: chan.id,
-		messages: messages
-	});
 }

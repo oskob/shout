@@ -1,5 +1,5 @@
 module.exports = function(grunt) {
-	var libs = "client/js/**/*.js";
+	var libs = "client/js/libs/**/*.js";
 	grunt.initConfig({
 		watch: {
 			files: libs,
@@ -11,7 +11,7 @@ module.exports = function(grunt) {
 			},
 			js: {
 				files: {
-					"client/build/build.js": libs
+					"client/js/libs.min.js": libs
 				}
 			}
 		}
@@ -19,7 +19,23 @@ module.exports = function(grunt) {
 	grunt.loadNpmTasks("grunt-contrib-uglify");
 	grunt.loadNpmTasks("grunt-contrib-watch");
 	grunt.registerTask(
+		"build",
+		function() {
+			grunt.util.spawn({
+				cmd: "node",
+				args: [
+					"node_modules/handlebars/bin/handlebars",
+					"client/views/",
+					"-e", "tpl",
+					"-f", "client/js/shout.templates.js"
+				]
+			}, function(err) {
+				if (err) console.log(err);
+			});
+		}
+	);
+	grunt.registerTask(
 		"default",
-		["uglify"]
+		["uglify", "build"]
 	);
 };

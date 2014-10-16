@@ -3,15 +3,24 @@
 	<div class="header">
 		<button class="lt"></button>
 		<button class="rt"></button>
+		<div class="right">
+			<button class="button close">
+				{{#equal type "lobby"}}
+					Disconnect
+				{{else}}
+					Leave
+				{{/equal}}
+			</button>
+		</div>
 		<span class="title">{{name}}</span>
-		<span class="topic">{{type}} </span>
+		<span class="topic">{{{parse topic}}}</span>
 	</div>
 	<div class="chat">
-		{{#equal 100 messages.length}}
-		<button class="show-more" data-id="{{id}}">
-			Show more
-		</button>
-		{{/equal}}
+		<div class="show-more {{#equal messages.length 100}}show{{/equal}}">
+			<button class="show-more-button" data-id="{{id}}">
+				Show more
+			</button>
+		</div>
 		<div class="messages">
 			{{partial "msg"}}
 		</div>

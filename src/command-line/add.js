@@ -1,16 +1,16 @@
 var ClientManager = new require("../clientManager");
+var bcrypt = require("bcrypt-nodejs");
 var fs = require("fs");
 var program = require("commander");
 var mkdirp = require("mkdirp");
-
-const HOME = process.env.HOME + "/.shout";
+var Helper = require("../helper");
 
 program
-	.command("add <name>")
+	.command("add <name> [<password>]")
 	.description("Add a new user")
-	.action(function(name) {
+	.action(function(name, password) {
+		var path = Helper.HOME + "/users";
 		try {
-			var path = HOME + "/users";
 			mkdirp.sync(path);
 		} catch (e) {
 			console.log("");
@@ -20,7 +20,6 @@ program
 			return;
 		}
 		try {
-			var path = HOME + "/users";
 			var test = path + "/.test";
 			fs.mkdirSync(test);
 			fs.rmdirSync(test);
@@ -39,18 +38,27 @@ program
 			console.log("");
 			return;
 		}
-		require("read")({
-			prompt: "Password: "
-		}, function(err, password) {
-			console.log("");
-			if (err) {
-				return;
-			}
-			var success = manager.addUser(
-				name,
-				password
-			);
-			console.log("Added '" + name + "'.");
-			console.log("");
-		});
+		if (password) {
+			add(manager, name, password);
+		} else {
+			require("read")({
+				prompt: "Password: ",
+				silent: true
+			}, function(err, password) {
+				if (!err) add(manager, name, password);
+			});
+		}
 	});
+
+function add(manager, name, password) {
+	console.log("");
+	var salt = bcrypt.genSaltSync(8);
+	var hash = bcrypt.hashSync(password, salt);
+	manager.addUser(
+		name,
+		hash
+	);
+	console.log("User '" + name + "' created:");
+	console.log(Helper.HOME + "/users/" + name + ".json");
+	console.log("");
+}

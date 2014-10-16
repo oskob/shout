@@ -2,8 +2,8 @@ var _ = require("lodash");
 var fs = require("fs");
 var Client = require("./client");
 var mkdirp = require("mkdirp");
-
-const HOME = process.env.HOME + "/.shout";
+var Helper = require("./helper");
+var moment = require("moment");
 
 module.exports = ClientManager;
 
@@ -21,27 +21,17 @@ ClientManager.prototype.findClient = function(name) {
 	return false;
 };
 
-ClientManager.prototype.loadUsers = function(sockets) {
+ClientManager.prototype.loadUsers = function() {
 	var users = this.getUsers();
 	for (var i in users) {
-		var name = users[i];
-		var json = this.loadUser(name);
-		if (!json) {
-			continue;
-		}
-		if (!this.findClient(name)) {
-			this.clients.push(new Client(
-				sockets,
-				json
-			));
-		}
+		this.loadUser(users[i]);
 	}
 };
 
 ClientManager.prototype.loadUser = function(name) {
 	try {
 		var json = fs.readFileSync(
-			HOME + "/users/" + name + "/user.json",
+			Helper.HOME + "/users/" + name + ".json",
 			"utf-8"
 		);
 		json = JSON.parse(json);
@@ -49,23 +39,33 @@ ClientManager.prototype.loadUser = function(name) {
 		console.log(e);
 		return;
 	}
-	return json;
+	if (!this.findClient(name)) {
+		this.clients.push(new Client(
+			this.sockets,
+			name,
+			json
+		));
+		console.log(
+			"User '" + name + "' loaded."
+		);
+	}
 };
 
 ClientManager.prototype.getUsers = function() {
 	var users = [];
-	var path = HOME + "/users/";
+	var path = Helper.HOME + "/users";
 	mkdirp.sync(path);
 	try {
-		users = fs.readdirSync(path);
+		var files = fs.readdirSync(path);
+		files.forEach(function(file) {
+			if (file.indexOf(".json") !== -1) {
+				users.push(file.replace(".json", ""));
+			}
+		});
 	} catch(e) {
 		console.log(e);
 		return;
 	}
-	users = _.without(
-		users,
-		"example"
-	);
 	return users;
 };
 
@@ -75,15 +75,16 @@ ClientManager.prototype.addUser = function(name, password) {
 		return false;
 	}
 	try {
-		var path = HOME + "/users/" + name;
+		var path = Helper.HOME + "/users";
 		var user = {
 			user: name,
 			password: password || "",
+			log: false,
 			networks: []
 		};
-		fs.mkdirSync(path);
+		mkdirp.sync(path);
 		fs.writeFileSync(
-			path + "/user.json",
+			path + "/" + name + ".json",
 			JSON.stringify(user, null, "  "),
 			{mode: "0777"}
 		);
@@ -99,11 +100,41 @@ ClientManager.prototype.removeUser = function(name) {
 		return false;
 	}
 	try {
-		var path = HOME + "/users/" + name;
-		fs.unlinkSync(path + "/user.json");
-		fs.rmdirSync(path);
+		var path = Helper.HOME + "/users/" + name + ".json";
+		fs.unlinkSync(path);
 	} catch(e) {
 		throw e;
 	}
 	return true;
 };
+
+ClientManager.prototype.autoload = function(sockets) {
+	var self = this;
+	var loaded = [];
+	setInterval(function() {
+		var loaded = _.pluck(
+			self.clients,
+			"name"
+		);
+		var added = _.difference(self.getUsers(), loaded);
+		_.each(added, function(name) {
+			self.loadUser(name);
+		});
+		var removed = _.difference(loaded, self.getUsers());
+		_.each(removed, function(name) {
+			var client = _.find(
+				self.clients, {
+					name: name
+				}
+			);
+			if (client) {
+				client.quit();
+				self.clients = _.without(self.clients, client);
+				console.log(
+					"User '" + name + "' disconnected."
+				);
+			}
+		});
+	}, 1000);
+};
+
