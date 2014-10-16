@@ -35,7 +35,6 @@
 			return;
 		}
 		
-		
 		// Remove any leftovers.
 		// This allows us to override the plugin if necessary.
 		this.unbind(".tabcomplete");
